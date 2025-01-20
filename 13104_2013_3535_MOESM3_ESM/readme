@@ -1,0 +1,60 @@
+1. Description of Perl Modules
+
+Existing modules developed in house include Hmm3.pm, HMMmodE.pm were written in perl (5.10.1) and using BioPerl (1.6.901).
+1. Hmm3.pm is used for fetching probabilities of amino acids from HMM profiles build from HMMER 3.0.
+2. HMMmodE.pm is used for parsing MCL cluster output, modifying the emission probabilities and for cross-validation to generate discrimination thresholds using HMMER 3.0.
+
+2. The Prerequisites
+
+1. Dataset
+A set of pre-classified sequences (An example dataset of AGC protein kinase family is provided as a test case, having 6 sub-families : grk58.seq, pkc69.seq, pka139.seq, pvpk50.seq, rac23.seq and s6pk41.seq)
+
+2. Tools
+
+BLAST  (can be downloaded from ftp://ftp.ncbi.nih.gov/blast/), we have used blast-2.2.22.
+MCL - a cluster algorithm for graphs, must be installed with the option –enable-blast. (can be downloaded from http://micans.org/mcl/), we have used mcl-09-308.
+Muscle for  sequence alignment (can be downloaded from http://www.ebi.ac.uk/Tools/msa/muscle/#)
+HMMER 3.0 -(can be downloaded from http://hmmer.janelia.org/)
+Statistics::Lite module, for simple calculations (can be downloaded from CPAN)
+Parallel::ForkManager (can be downloaded from CPAN)
+Bio-Perl (can be downloaded from CPAN)
+
+
+For the ease to use all compiled binaries are provided in the folder prerequisites at www.jnu.ac.in/Faculty/andrew which has following folders:
+
+1. "bin", having all executables (compliled on linux x86_64 bit machine) and the Statistics::Lite and Parallel::ForkManager
+2. BioPerl module are provided as separate folders. 
+3. "test_data" which is an example dataset of AGC protein kinase family is provided as a test case, having 6 sub-families : grk58.seq, pkc69.seq, pka139.seq, pvpk50.seq, rac23.seq and s6pk41.seq
+
+Now you have to simply export the environment variable as:
+
+export PERL5LIB=$PERL5LIB:/path/to/BioPerl-1.6.901/:/path/to/BioPerl-Run-1.006900/
+export PATH=/path/to/bin/directory/:$PATH
+
+
+In addition you have to add the path of Hmm3.pm and HMMmodE.pm in the pre_processing.pl and hmmMode.pl scripts as
+use lib '/path/to/directory_having_Hmm3.pm_and_HMMmodE.pm'
+
+
+Samples scripts to run the protocol
+
+1.Create a file containing list of all training sequence files
+ls *seq >list (the files here have extension .seq)
+
+2. Prepare a database of all training sequences as cat *.seq>all.fasta. This will be used to search the false positives.
+
+3. Run pre_processing.pl, which requires list as an argument
+   
+   perl pre_processing.pl list
+
+4. Run hmmmode.pl, which also requires list as an argument
+
+   perl hmmmode.pl list
+
+
+5. Run add_ga_threshold.pl, which writes the thresholds into the respective profiles. This program takes "list_cut.hmm" as the argument
+which is generated during the previous script run.
+
+   perl add_ga_threshold.pl list_cut.hmm
+
+6 Now, you can use the HMM profiles generated in the "train_samples" directory to scan across the sequence database (of your choice, for example, you can use uniprot) using 'hmmsearch'. These searches are done using the --cut_ga option of 'hmmsearch' that report sequences >= this score threshold.
