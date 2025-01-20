@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-use FindBin; # Import FindBin to determine script's directory
+use FindBin;                # Import FindBin to determine script's directory
 use lib "$FindBin::Bin/bin";
 use Parallel::ForkManager;
 use HMMmodE;
