@@ -5,7 +5,7 @@
 # CREATED : 20 November 2006
 # REVISION: Revised for Hmmer3.0
 # ANKNOLEDGEMENT: To be filled
-#		
+#
 #----------------------------------------------------------------------------
 package Hmm3;
 use strict;
@@ -187,182 +187,181 @@ methods. Internal methods are usually preceded with a _
 
 =cut
 
-sub new
-{
-	my ($class, %param) = @_;
-	my $self = bless {}, $class;
-	my $file = $param{-file};
-	$self->{'file'} = $file;
-	my $linePointer=0;
-	my $main_bool=0;
-	my %items;
-	my @items;
-	my %matchEmission;
-	my @matchEmissionLine=();
-	my %matchEmissionMap;
-	my @insertEmissionLine=();
-	my %insertEmission;
-	my @stateTransitionLine=();
-	my @stateTransitions=();
-	my %stateTransition;
-	my $line=0;
-	my $compo;
-	my $x;
-	my @alph=();
-	my @compoScore=();
-	my @firstlineScore=();
-	my @secondlineScore=();
-	my %prob;
-    	my %prob_nule;
-	open(FH,$self->{'file'});
-	while(<FH>)
-    	{
-		if(/^HMM\s+(.*)/)
-		{
-	    		@alph = split(" ",$1);	    
-		}
-		if(/^\s+COMPO\s+/)
-                {
-                @compoScore = split(" ",$_);
-		shift @compoScore;
-			for(my $i=0;$i<scalar @alph;$i++)
-			{
-				$prob_nule{$alph[$i]}=exp(-$compoScore[$i]);
-			}
-		}
-                if($_ =~ /m->m/)
-		{
-	        	$main_bool=1;
-	        	$linePointer=0;
-	    		foreach my $ele (split (" ",$_))
-	    		{
-				$ele =~ s/->/to/; 
-				push(@stateTransitions,$ele); 
-	    		}
-	    		next
-		}
-        	if($_ =~ /\/\//) # Checking the end of hmm
-		{
-	        	$main_bool=0;
-		}
-		# Reading the main section.   
-		if($main_bool)
-		{
-	        # Reading each line in main section in hmm 
-	    	# the main section starts after the following line
-	    	# m->m   m->i   m->d   i->m   i->i   d->m   d->d   
-	    	# The indexing is from zero.
-	    	#
-	    	# The first two lines (after the line starting with COMPO) in the main model section are atypical. They contain information for the core model’s BEGIN node.
-	    	# these lines is indexed as "one" and "two"
-	    	# First match emission line is indexed as "three"
-	    	# First Insert emission line is indexed as "four"
-	    	# First state transition line is indexed as "five"
-	    	# and so on...
-		#
-		#  Reading the COMPO line in the main section of hmm ie the first line.
-		# 
-			if(/^\s+COMPO\s+/)	
-			{
-				$linePointer=0;
-				@compoScore = split(" ",$_);
-				$linePointer++;
-				next
-			}
-			# End of reading COMPO line
-			#
-			# Reading the next two lines which are atypical
-			#
-			if($linePointer==1)
-			{
-	   			@firstlineScore = split(" ",$_);
-	  			$linePointer++;
-				next
-			}
-			if($linePointer==2)
-			{
-	   			@secondlineScore = split(" ",$_);
-	  			$linePointer++;
-				next
-			}
-			# End of reading first three lines
-			#
-			#  Reading the match emission line in the main section of hmm
-			# 
-			if($linePointer==3)
-			{
-		    		@matchEmissionLine = split(" ",$_);
-		    		for(my $j=1;$j<=scalar @alph;$j++)
-		    		{	
-					$matchEmission{$matchEmissionLine[0]}{$alph[$j-1]} = $matchEmissionLine[$j];
-					$line = $matchEmissionLine[0];
-                        		# Calculating emission probablity
-					$prob{$matchEmissionLine[0]}{$alph[$j-1]} = exp(-$matchEmissionLine[$j]); 
-		    		}
-                    		$matchEmissionMap{$line} = $matchEmissionLine[21];
-                   		$linePointer++;
-                    		next
-			}
-			# End of reading match emission line
-			#
-			#  Reading the insert emission line in the main section of hmm
-			# 
-			if($linePointer==4)
-			{
-		    		@insertEmissionLine = split(" ",$_);		    
-		    		for(my $j=1;$j<=scalar @alph;$j++)
-		    		{
-					$insertEmission{$line}{$alph[$j-1]} = $insertEmissionLine[$j-1];
-		    		}
-		    		$linePointer++;
-                    		next
-			}
-			# End of reading insert emission line
-			#
-			#  Reading the state transition line in the main section of hmm
-			#
-			if($linePointer==5)
-			{
-		    		@stateTransitionLine = split(" ",$_);
-		    		for(my $j=1;$j<=scalar @stateTransitions;$j++)
-		    		{
-					$stateTransition{$line}{$stateTransitions[$j-1]} = $stateTransitionLine[$j-1];	        
-		    		}
-		    		$linePointer=3;
-                    		next
-			}
-			# End of reading state transition line
-		} 
-		# End of if($bool_main)
-		if(/^(\S+)\s+(.*)/)
-		{
-         		push(@items,$_);
-    			# if {$1}=='STATS'{$item{$1}
-         		$items{$1}=$2;
-		}
-    	}
-	# End of while(<FH>)
-	# End of parsing hmmer profile file
-	
-	$self->{'compoScore'} = \@compoScore;
-	$self->{'firstlineScore'} = \@firstlineScore;
-	$self->{'secondlineScore'} = \@secondlineScore;
-	$self->{'matchEmission'} = \%matchEmission;
-	$self->{'matchEmissionMap'} = \%matchEmissionMap;
-	$self->{'insertEmission'} = \%insertEmission;
-	$self->{'stateTransition'} = \%stateTransition;
-	$self->{'matchEmissionProbablity'} = \%prob;
-	$self->{'stateTransitions'} = \@stateTransitions;
-	$self->{'nuleProbablity'} = \%prob_nule;
-	# Assigning the header parameters from hmmer profile file
-    	while(my ($k, $v)= each %items)
-    	{
-        	$self->{$k}= $v;
-    	}	
-    	$self->{'header'} = \@items;
-    	$self->{'BASE'}=\@alph;
-    	return $self;
+sub new {
+    my ( $class, %param ) = @_;
+    my $self = bless {}, $class;
+    my $file = $param{-file};
+    $self->{'file'} = $file;
+    my $linePointer = 0;
+    my $main_bool   = 0;
+    my %items;
+    my @items;
+    my %matchEmission;
+    my @matchEmissionLine = ();
+    my %matchEmissionMap;
+    my @insertEmissionLine = ();
+    my %insertEmission;
+    my @stateTransitionLine = ();
+    my @stateTransitions    = ();
+    my %stateTransition;
+    my $line = 0;
+    my $compo;
+    my $x;
+    my @alph            = ();
+    my @compoScore      = ();
+    my @firstlineScore  = ();
+    my @secondlineScore = ();
+    my %prob;
+    my %prob_nule;
+    open( FH, $self->{'file'} );
+
+    while (<FH>) {
+        if (/^HMM\s+(.*)/) {
+            @alph = split( " ", $1 );
+        }
+        if (/^\s+COMPO\s+/) {
+            @compoScore = split( " ", $_ );
+            shift @compoScore;
+            for ( my $i = 0; $i < scalar @alph; $i++ ) {
+                $prob_nule{ $alph[$i] } = exp( -$compoScore[$i] );
+            }
+        }
+        if ( $_ =~ /m->m/ ) {
+            $main_bool   = 1;
+            $linePointer = 0;
+            foreach my $ele ( split( " ", $_ ) ) {
+                $ele =~ s/->/to/;
+                push( @stateTransitions, $ele );
+            }
+            next;
+        }
+        if ( $_ =~ /\/\// )    # Checking the end of hmm
+        {
+            $main_bool = 0;
+        }
+
+        # Reading the main section.
+        if ($main_bool) {
+
+# Reading each line in main section in hmm
+# the main section starts after the following line
+# m->m   m->i   m->d   i->m   i->i   d->m   d->d
+# The indexing is from zero.
+#
+# The first two lines (after the line starting with COMPO) in the main model section are atypical. They contain information for the core model’s BEGIN node.
+# these lines is indexed as "one" and "two"
+# First match emission line is indexed as "three"
+# First Insert emission line is indexed as "four"
+# First state transition line is indexed as "five"
+# and so on...
+#
+#  Reading the COMPO line in the main section of hmm ie the first line.
+#
+            if (/^\s+COMPO\s+/) {
+                $linePointer = 0;
+                @compoScore  = split( " ", $_ );
+                $linePointer++;
+                next;
+            }
+
+            # End of reading COMPO line
+            #
+            # Reading the next two lines which are atypical
+            #
+            if ( $linePointer == 1 ) {
+                @firstlineScore = split( " ", $_ );
+                $linePointer++;
+                next;
+            }
+            if ( $linePointer == 2 ) {
+                @secondlineScore = split( " ", $_ );
+                $linePointer++;
+                next;
+            }
+
+            # End of reading first three lines
+            #
+            #  Reading the match emission line in the main section of hmm
+            #
+            if ( $linePointer == 3 ) {
+                @matchEmissionLine = split( " ", $_ );
+                for ( my $j = 1; $j <= scalar @alph; $j++ ) {
+                    $matchEmission{ $matchEmissionLine[0] }{ $alph[ $j - 1 ] }
+                        = $matchEmissionLine[$j];
+                    $line = $matchEmissionLine[0];
+
+                    # Calculating emission probablity
+                    $prob{ $matchEmissionLine[0] }{ $alph[ $j - 1 ] }
+                        = exp( -$matchEmissionLine[$j] );
+                }
+                $matchEmissionMap{$line} = $matchEmissionLine[21];
+                $linePointer++;
+                next;
+            }
+
+            # End of reading match emission line
+            #
+            #  Reading the insert emission line in the main section of hmm
+            #
+            if ( $linePointer == 4 ) {
+                @insertEmissionLine = split( " ", $_ );
+                for ( my $j = 1; $j <= scalar @alph; $j++ ) {
+                    $insertEmission{$line}{ $alph[ $j - 1 ] }
+                        = $insertEmissionLine[ $j - 1 ];
+                }
+                $linePointer++;
+                next;
+            }
+
+            # End of reading insert emission line
+            #
+            #  Reading the state transition line in the main section of hmm
+            #
+            if ( $linePointer == 5 ) {
+                @stateTransitionLine = split( " ", $_ );
+                for ( my $j = 1; $j <= scalar @stateTransitions; $j++ ) {
+                    $stateTransition{$line}{ $stateTransitions[ $j - 1 ] }
+                        = $stateTransitionLine[ $j - 1 ];
+                }
+                $linePointer = 3;
+                next;
+            }
+
+            # End of reading state transition line
+        }
+
+        # End of if($bool_main)
+        if (/^(\S+)\s+(.*)/) {
+            push( @items, $_ );
+
+            # if {$1}=='STATS'{$item{$1}
+            $items{$1} = $2;
+        }
+    }
+
+    # End of while(<FH>)
+    # End of parsing hmmer profile file
+
+    $self->{'compoScore'}              = \@compoScore;
+    $self->{'firstlineScore'}          = \@firstlineScore;
+    $self->{'secondlineScore'}         = \@secondlineScore;
+    $self->{'matchEmission'}           = \%matchEmission;
+    $self->{'matchEmissionMap'}        = \%matchEmissionMap;
+    $self->{'insertEmission'}          = \%insertEmission;
+    $self->{'stateTransition'}         = \%stateTransition;
+    $self->{'matchEmissionProbablity'} = \%prob;
+    $self->{'stateTransitions'}        = \@stateTransitions;
+    $self->{'nuleProbablity'}          = \%prob_nule;
+
+    # Assigning the header parameters from hmmer profile file
+    while ( my ( $k, $v ) = each %items ) {
+        $self->{$k} = $v;
+    }
+    $self->{'header'} = \@items;
+    $self->{'BASE'}   = \@alph;
+    return $self;
 }
+
 # End of new
 
 =head2 destroy
@@ -373,10 +372,10 @@ sub new
 
 =cut
 
-sub destroy 
-{
-   my $self = shift;
-   printf("Cleaning object \"$self\" from memory at %s\n", scalar localtime);
+sub destroy {
+    my $self = shift;
+    printf( "Cleaning object \"$self\" from memory at %s\n",
+        scalar localtime );
 }
 
 =head2 compoScore
@@ -389,10 +388,9 @@ sub destroy
 
 =cut
 
-sub compoScore 
-{
-	my ($self) = @_;
-	return $self->{'compoScore'};
+sub compoScore {
+    my ($self) = @_;
+    return $self->{'compoScore'};
 }
 
 =head2 firstlineScore
@@ -405,10 +403,9 @@ sub compoScore
 
 =cut
 
-sub firstLine
-{
-	my ($self)=@_;
-	return $self->{'firstlineScore'};
+sub firstLine {
+    my ($self) = @_;
+    return $self->{'firstlineScore'};
 }
 
 =head2 secondlineScore
@@ -421,10 +418,9 @@ sub firstLine
 
 =cut
 
-sub secondlineScore
-{
-	my ($self)=@_;
-	return $self->{'secondlineScore'};
+sub secondlineScore {
+    my ($self) = @_;
+    return $self->{'secondlineScore'};
 }
 
 =head2 nuleProbablity
@@ -439,8 +435,7 @@ sub secondlineScore
 
 =cut
 
-sub nuleProbablity
-{
+sub nuleProbablity {
     my ($self) = @_;
     return $self->{'nuleProbablity'};
 }
@@ -454,7 +449,6 @@ sub nuleProbablity
  Args    : None
 
 =cut
-
 
 sub matchEmission {
     my ($self) = @_;
@@ -488,8 +482,8 @@ sub matchEmissionMap {
 =cut
 
 sub insertEmission {
-   my ($self) = @_;
-   return $self->{'insertEmission'};
+    my ($self) = @_;
+    return $self->{'insertEmission'};
 }
 
 =head2 stateTransitions
@@ -502,10 +496,9 @@ sub insertEmission {
 
 =cut
 
-
 sub stateTransitions {
-   my ($self) = @_;
-   return $self->{'stateTransitions'};
+    my ($self) = @_;
+    return $self->{'stateTransitions'};
 }
 
 =head2 stateTransition
@@ -535,9 +528,7 @@ sub stateTransition {
 
 =cut
 
-
-sub matchEmissionProbablity 
-{
+sub matchEmissionProbablity {
     my ($self) = @_;
     return $self->{'matchEmissionProbablity'};
 }
@@ -551,86 +542,79 @@ sub matchEmissionProbablity
 
 =cut
 
-sub writeProfile
-{
-my ($self, $file) = @_;
-open(FH_OUT,">$file");
-foreach(@{$self->{'header'}})
-{
-	unless($_ =~ /\/\//){print FH_OUT $_};
-}
-	#########################
-	print FH_OUT spacer(7);
-	my @stateTransition = @{$self->{'stateTransitions'}};
-	foreach (@stateTransition)
-	{
-		$_ =~ s/to/->/;
-		printf FH_OUT "%9s",$_;
-	}
-	print FH_OUT "\n";
-	##########################
-	print FH_OUT spacer(2);
-        my @compoScore = @{$self->{'compoScore'}};
-	my $compo=shift(@compoScore);
-	print FH_OUT $compo;
-	print FH_OUT spacer(1);
-	foreach (@compoScore)
-	{
-		printf FH_OUT "%9s",$_;
-	}
-	print FH_OUT "\n";
-	##########################
-	print FH_OUT spacer(8);
-	foreach(@{$self->{'firstlineScore'}})
-	{
-		printf FH_OUT "%9s",$_;
-	}
-	print FH_OUT "\n";
-	###########################
-	print FH_OUT spacer(8);
-	foreach(@{$self->{'secondlineScore'}})
-	{
-		printf FH_OUT "%9s",$_;
-	}
-	print FH_OUT "\n";
-	###########################
-	my @amino=("A","C","D","E","F","G","H","I","K","L","M","N","P","Q","R","S","T","V","W","Y");
-	my @columns= sort { $a <=> $b } keys %{$self->matchEmission};
-	foreach my $col (@columns)
-	{
-		printf FH_OUT "%7s",$col;
-		print FH_OUT spacer(1);
-		foreach(@amino)
-		{
-			printf FH_OUT spacer(2);
-			printf FH_OUT "%.5f",${$self->matchEmission}{$col}{$_};# round off the score to 5 digits precision
-		}
-		printf FH_OUT "%7s",${$self->matchEmissionMap}{$col};
-		printf FH_OUT "%2s","-" if($self->{'RF'} eq "no");
-		printf FH_OUT "%2s","-" if($self->{'CS'} eq "no");
-		print FH_OUT "\n";
-		print FH_OUT spacer(8);
-		foreach(@amino)
-		{
-			printf FH_OUT "%9s",${$self->insertEmission}{$col}{$_};
-		}
-		print FH_OUT "\n";
-		print FH_OUT spacer(8);             
-		foreach (@{$self->{'stateTransitions'}})
-		{
-		$_ =~ s/->/to/;
-		printf FH_OUT "%9s",${$self->stateTransition}{$col}{$_};
-		}
-		print FH_OUT "\n";
-	}
-	print FH_OUT "//\n";
-	sub spacer()
-	{
-		my $space = shift;
-		for(my $i=0;$i<$space;$i++)
-		{
-			print FH_OUT " ";
-		}
-	}
+sub writeProfile {
+    my ( $self, $file ) = @_;
+    open( FH_OUT, ">$file" );
+    foreach ( @{ $self->{'header'} } ) {
+        unless ( $_ =~ /\/\// ) { print FH_OUT $_ }
+    }
+    #########################
+    print FH_OUT spacer(7);
+    my @stateTransition = @{ $self->{'stateTransitions'} };
+    foreach (@stateTransition) {
+        $_ =~ s/to/->/;
+        printf FH_OUT "%9s", $_;
+    }
+    print FH_OUT "\n";
+    ##########################
+    print FH_OUT spacer(2);
+    my @compoScore = @{ $self->{'compoScore'} };
+    my $compo      = shift(@compoScore);
+    print FH_OUT $compo;
+    print FH_OUT spacer(1);
+    foreach (@compoScore) {
+        printf FH_OUT "%9s", $_;
+    }
+    print FH_OUT "\n";
+    ##########################
+    print FH_OUT spacer(8);
+    foreach ( @{ $self->{'firstlineScore'} } ) {
+        printf FH_OUT "%9s", $_;
+    }
+    print FH_OUT "\n";
+    ###########################
+    print FH_OUT spacer(8);
+    foreach ( @{ $self->{'secondlineScore'} } ) {
+        printf FH_OUT "%9s", $_;
+    }
+    print FH_OUT "\n";
+    ###########################
+    my @amino = (
+        "A", "C", "D", "E", "F", "G", "H", "I", "K", "L",
+        "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y"
+    );
+    my @columns = sort { $a <=> $b } keys %{ $self->matchEmission };
+    foreach my $col (@columns) {
+        printf FH_OUT "%7s", $col;
+        print FH_OUT spacer(1);
+        foreach (@amino) {
+            printf FH_OUT spacer(2);
+            printf FH_OUT "%.5f", ${ $self->matchEmission }{$col}{$_}
+                ;    # round off the score to 5 digits precision
+        }
+        printf FH_OUT "%7s", ${ $self->matchEmissionMap }{$col};
+        printf FH_OUT "%2s", "-" if ( $self->{'RF'} eq "no" );
+        printf FH_OUT "%2s", "-" if ( $self->{'CS'} eq "no" );
+        print FH_OUT "\n";
+        print FH_OUT spacer(8);
+        foreach (@amino) {
+            printf FH_OUT "%9s", ${ $self->insertEmission }{$col}{$_};
+        }
+        print FH_OUT "\n";
+        print FH_OUT spacer(8);
+        foreach ( @{ $self->{'stateTransitions'} } ) {
+            $_ =~ s/->/to/;
+            printf FH_OUT "%9s", ${ $self->stateTransition }{$col}{$_};
+        }
+        print FH_OUT "\n";
+    }
+    print FH_OUT "//\n";
+
+    sub spacer() {
+        my $space = shift;
+        for ( my $i = 0; $i < $space; $i++ ) {
+            print FH_OUT " ";
+        }
+    }
 }
 1;
